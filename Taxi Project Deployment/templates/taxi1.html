@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <title>Book a Taxi</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f4f4f4;
+      }
+
+      header {
+            background-color: #FFD700; 
+            color: #333;
+            padding: 15px 0;
+            text-align: center;
+            font-size: 26px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .form-container {
+            max-width: 800px;
+            margin: 30px auto;
+            padding: 25px;
+            background-color: #fff;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+      }
+
+      .location-input,
+      .datetime-input,
+      .passenger-input {
+        box-sizing: border-box;
+        width: 100%;
+        padding: 10px 15px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        margin-bottom: 10px;
+      }
+
+      .calendar-button {
+            background-color: #FFD700;
+            color: #333;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-weight: 600;
+      }
+
+      .calendar-button:hover {
+            background-color: #FFC400;
+        }
+
+      #map {
+        height: 400px;
+        width: 100%;
+        margin-top: 20px;
+        display: none
+      }
+
+      .output-box {
+        text-align: center;
+        border: 1px solid #ccc;
+        padding: 15px;
+        border-radius: 5px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        margin-top: 20px;
+        display: none;
+      }
+
+      .output-title {
+        font-size: 18px;
+        font-weight: bold;
+        margin-bottom: 10px;
+        text-align: center;
+      }
+
+      .output-details {
+        font-size: 16px;
+        line-height: 1.5;
+      }
+
+    </style>
+    <script src="https://maps.googleapis.com/maps/api/js?key=<Enter-your-key-here>&libraries=places"></script>
+  </head>
+
+  <body>
+    <header>
+      Book a Taxi Newyork
+    </header>
+    <form id="bookingForm" class="form-container" method="POST" action="/predict">
+        <input id="pickupautocomplete" name="pickupLocation" class="location-input" type="text" placeholder="Enter pickup location" required>
+        <input id="dropoffautocomplete" name="dropoffLocation" class="location-input" type="text" placeholder="Enter drop off location" required>
+        <select id="passengerCount" name="passenger_count" class="passenger-input" required>
+          <option value="" disabled selected hidden>Number of passengers</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+        </select>
+
+          <input id="datetime" name="datetime" class="datetime-input" type="datetime-local" required>
+        <button type="submit" class="calendar-button" value="Book Now" onclick="calculateAndDisplayRoute(directionsService, directionsRenderer)">
+        Book Now
+        </button>
+        <div id="priceInfo" class="output-box"></div>
+        <div id="map"></div>
+        <div id="outputDistance" class="output-box"></div>
+        <div id="weatherInfo" class="output-box"></div>
+    </form>
+    <script>
+  var directionsRenderer;
+  var directionsService;
+
+  function initMap() {
+    directionsRenderer = new google.maps.DirectionsRenderer();
+    directionsService = new google.maps.DirectionsService();
+
+    const map = new google.maps.Map(document.getElementById("map"), {
+      zoom: 7,
+      center: {
+        lat: 41.85,
+        lng: -87.65
+      },
+      disableDefaultUI: true,
+    });
+
+    directionsRenderer.setMap(map);
+  }
+
+  function calculateAndDisplayRoute(event) {
+    event.preventDefault(); // Prevent the form from submitting through the standard action
+
+    const start = document.getElementById("pickupautocomplete").value;
+    const end = document.getElementById("dropoffautocomplete").value;
+    const passengerCount = document.getElementById("passengerCount").value;
+    const datetime = document.getElementById("datetime").value;
+
+    directionsService
+      .route({
+        origin: start,
+        destination: end,
+        travelMode: google.maps.TravelMode.DRIVING,
+      })
+      .then((response) => {
+        directionsRenderer.setDirections(response);
+        document.getElementById("map").style.display = "block";
+
+        var route = response.routes[0].legs[0];
+        var outputDiv = document.getElementById("outputDistance");
+        outputDiv.style.display = "block"; // Ensure the output box is shown
+        outputDiv.innerHTML = `<div class="output-title">Route Details</div>
+                              <div class="output-details">From: ${route.start_address}</div>
+                              <div class="output-details">To: ${route.end_address}</div>
+                              <div class="output-details">Distance: ${route.distance.text}</div>
+                              <div class="output-details">Duration: ${route.duration.text}</div>`;
+
+        const predictionData = {
+          pickupLocation: start,
+          dropoffLocation: end,
+          datetime: datetime,
+          passenger_count: passengerCount
+        };
+
+        fetch('/predict', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(predictionData)
+        })
+        .then(response => response.json())
+        .then(data => {
+          const priceInfo = document.getElementById("priceInfo");
+          if (!priceInfo) {
+            console.error('Price Info element not found');
+            return;
+          }
+
+          priceInfo.style.display = "block";
+          priceInfo.innerHTML = `
+            <div class="output-title">Price Prediction</div>
+            <div class="output-details">Predicted Fare: <strong>$${data.price}</strong>, Demand: <strong>${data.demand}</strong></div>
+            <div class="output-details">${data.statement}</div>
+          `;
+          
+          const weatherInfo = document.getElementById("weatherInfo");
+          if (!weatherInfo) {
+            console.error('Weather Info element not found');
+            return;
+          }
+
+          weatherInfo.style.display = "block";
+          weatherInfo.innerHTML = `
+            <div class="output-title">Weather Info at Pick-up Time</div>
+            <div id="temperature" class="output-details">Temperature: ${data.temperature}°F</div>
+            <div class="output-details">Condition: ${data.condition}</div>
+          `;
+        })
+        .catch(error => {
+          console.error('Error:', error);
+        });
+      })
+      .catch((e) => window.alert("Directions request failed due to " + status));
+  }
+
+  function initAutocomplete() {
+    new google.maps.places.Autocomplete(document.getElementById('pickupautocomplete'), {
+      types: ['geocode']
+    });
+    new google.maps.places.Autocomplete(document.getElementById('dropoffautocomplete'), {
+      types: ['geocode']
+    });
+  }
+
+  window.onload = function() {
+    initMap();
+    initAutocomplete();
+    // Add the event listener for the form submission
+    document.getElementById('bookingForm').addEventListener('submit', calculateAndDisplayRoute);
+  };
+</script>
+
+  </body>
+
+</html>

@@ -1,0 +1,1 @@
+{"class":"org.apache.spark.ml.feature.VectorAssembler","timestamp":1700542173407,"sparkVersion":"3.5.0","uid":"VectorAssembler_15efe851ebf7","paramMap":{"outputCol":"features","inputCols":["temp","year","month","day","hour","Latitude","Longitude","is_weekend"]},"defaultParamMap":{"outputCol":"VectorAssembler_15efe851ebf7__output","handleInvalid":"error"}}
